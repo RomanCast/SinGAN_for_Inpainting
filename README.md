@@ -23,6 +23,7 @@ python inpainting.py --input_name <YOUR IMAGE NAME>.png --ref_name <YOUR EDIT NA
 
 You will need to provide in `Input/Inpainting/` the edited image (i.e. with masked holes) and the mask (`<YOUR EDIT NAME>_mask.png`) which is a black and white image.
 
+You can add the option `--fill mean` to fill the holes with the mean value of the non masked pixels. This lead to way better results than just a white hole.
 
 ## TODO
 

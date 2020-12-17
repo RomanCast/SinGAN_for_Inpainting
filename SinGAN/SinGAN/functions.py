@@ -360,8 +360,14 @@ def dilate_mask(mask,opt):
 
 def fill_mask(opt, ref, mask):
     if opt.fill == 'mean':
-        mean = ref[mask==0].mean(1)
+        mean = []
+        # We take the mean for each channel where the mask is black, that is outside the holes
+        for channel in range(3):
+            mean.append(ref[:,channel,:,:][mask[:,channel,:,:]==-1.].mean())
+        print(mean)
     else:
         raise ValueError(f"Option to fill mask is unknown: {opt.fill}")
-    ref[mask!=0] = mean
+    # We now give the mean to the mask inside the holes
+    for channel in range(3):
+        ref[:,channel,:,:] = ref[:,channel,:,:].where(mask[:,channel,:,:]==-1., mean[channel])
     return ref
