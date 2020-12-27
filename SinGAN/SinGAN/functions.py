@@ -387,6 +387,9 @@ def fill_mask(opt, ref, mask, ref_dir, mask_dir):
         for channel in range(3):
             mean.append(ref[:,channel,:,:][mask[:,channel,:,:]==-1.].mean())
         print(mean)
+        # We now give the mean to the mask inside the holes
+        for channel in range(3):
+            ref[:,channel,:,:] = ref[:,channel,:,:].where(mask[:,channel,:,:]==-1., mean[channel])
     elif opt.fill == 'NNs':
         im = np.array(Image.open(ref_dir).convert('RGB'))
         mask_2d =cv2.imread(mask_dir,0)
@@ -396,7 +399,5 @@ def fill_mask(opt, ref, mask, ref_dir, mask_dir):
 
     else:
         raise ValueError(f"Option to fill mask is unknown: {opt.fill}")
-    # We now give the mean to the mask inside the holes
-    for channel in range(3):
-        ref[:,channel,:,:] = ref[:,channel,:,:].where(mask[:,channel,:,:]==-1., mean[channel])
+
     return ref
