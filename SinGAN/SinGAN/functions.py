@@ -391,7 +391,7 @@ def fill_mask(opt, ref, mask, ref_dir, mask_dir):
         im = np.array(Image.open(ref_dir).convert('RGB'))
         mask_2d =cv2.imread(mask_dir,0)
         p_size=51
-        _,im = NNS(img,mask_2d,p_size,itr=5)
+        _,im = NNS(im,mask_2d,p_size,itr=5)
         ref = np_to_torch(im)
 
     else:
