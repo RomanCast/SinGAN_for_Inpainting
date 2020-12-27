@@ -172,10 +172,10 @@ def random_search(f, a, dist, A_padding, B, box, p_size, alpha=0.5):
             f[x, y] = b
         i += 1
 
-def NNS(img, mask, p_size, itr):
-    A_h = np.size(img, 0)
-    A_w = np.size(img, 1)
-    ref = A.copy()
+def NNS(im, mask, p_size, itr):
+    A_h = np.size(im, 0)
+    A_w = np.size(im, 1)
+    ref = im.copy()
     p = p_size//2
     box = contour_holes(mask,p_size)
     boxx,boxy,boxw,boxh = box[0],box[1],box[2],box[3]
@@ -203,18 +203,18 @@ def NNS(img, mask, p_size, itr):
                     propagation(f, a, dist, img_padding, ref, box,p_size, True)
                     random_search(f, a, dist, img_padding, ref, box,p_size)
         print("iteration: %d"%(itr))
-        nns = np.zeros_like(img)
+        nns = np.zeros_like(im)
         for i in range(A_h):
           for j in range(A_w):
             nns[i,j,:] = ref[f[i,j][0],f[i,j][1],:]
-        img,mask = reconstruction(f,img,ref,mask,mask_orig,p_size)
+        im,mask = reconstruction(f,im,ref,mask,mask_orig,p_size)
         img_padding = np.ones([A_h+p*2, A_w+p*2, 3]) * np.nan
-        img_padding[p:A_h+p, p:A_w+p, :] = img
+        img_padding[p:A_h+p, p:A_w+p, :] = im
         print('nns')
         plt.imshow(nns)
         plt.show()
         print('reconstruction')
-        plt.imshow(img)
+        plt.imshow(im)
         plt.show()
 
-    return f,img
+    return f,im
