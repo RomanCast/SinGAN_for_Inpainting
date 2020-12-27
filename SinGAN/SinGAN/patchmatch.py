@@ -1,3 +1,30 @@
+'''
+PATCHMATCH TO FILL A BIG HOLE
+
+- alternative to mean filling (works on small holes), using internal image distribution/information
+
+- inspired by https://github.com/MingtaoGuo/PatchMatch and modified for inpainting:
+
+--> we suppose that the image has one big hole
+--> we define a rectangular bounding box around the missing zone / hole
+--> we use a very simple PatchMatch method (using patches of the image outside this bbox)
+to fill in the big hole
+        - the chosen patch size depends on the box size: not too big (which would mean
+          iterating on a lot of pixels) and not too small (too many patchmatch iterations
+          would be neccessary to fill in the entire hole)
+        - the result will be a good initialization for the SinGAN inpainting,
+          which explains why it doesn't need to be perfect
+          --> we consider only order 0 displacement fields, the reconstruction
+              is rather straight-forward and naiv, the patch size can be pretty
+              big as we don't care about the details
+
+CAREFUL: can be really slow, we could try to crop the image first around the hole,
+or to downsample it (as the filling doesn't have to be of high resolution)
+--> an alternative would be to copy paste chosen
+patches of the image (editing), but that would mean that we have to do it manually
+
+'''
+
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
