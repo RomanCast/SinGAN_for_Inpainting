@@ -9,6 +9,9 @@ import SinGAN.functions as functions
 Modified files so far:
  - SinGAN/functions.py : generate_dir2save & dilate_mask & fill_mask
  - SinGAN/manipulate.py : SinGAN_generate
+
+ Added files:
+ - patchmatch.py
 """
 
 
