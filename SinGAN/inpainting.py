@@ -49,7 +49,7 @@ if __name__ == '__main__':
             ref = functions.read_image_dir('%s/%s' % (opt.ref_dir, opt.ref_name), opt)
             mask = functions.read_image_dir('%s/%s_mask%s' % (opt.ref_dir,opt.ref_name[:-4],opt.ref_name[-4:]), opt)
             if opt.fill is not None:
-                ref = functions.fill_mask(opt, ref, mask, opt.ref_dir,'%s/%s_mask%s' % (opt.ref_dir,opt.ref_name[:-4],opt.ref_name[-4:]))
+                ref = functions.fill_mask(opt, ref, mask, '%s/%s' % (opt.ref_dir, opt.ref_name),'%s/%s_mask%s' % (opt.ref_dir,opt.ref_name[:-4],opt.ref_name[-4:]))
             if ref.shape[3] != real.shape[3]:
                 '''
                 mask = imresize(mask, real.shape[3]/ref.shape[3], opt)
