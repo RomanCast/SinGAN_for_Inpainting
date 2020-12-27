@@ -14,6 +14,9 @@ import os
 import random
 from sklearn.cluster import KMeans
 
+from SinGAN.patchmatch import NNS,is_hole
+from PIL import Image
+import cv2
 
 # custom weights initialization called on netG and netD
 
@@ -357,14 +360,40 @@ def dilate_mask(mask,opt):
     mask = (mask-mask.min())/(mask.max()-mask.min())
     return mask
 
+def padding(img,p):
+    x = np.ones([A_h+p*2, A_w+p*2, 3]) * np.nan
+    x = x[:,:,:,None]
+    x = x.transpose(3, 2, 0, 1)/225
+    x = torch.from_numpy(x)
+    x = x.type(torch.FloatTensor)
+    x = norm(x)
+    img_padding = x[:,0:3,:,:]
+    img_padding[0,:,p:A_h+p, p:A_w+p] = img[0,:,:,:]
+    return img_padding
 
-def fill_mask(opt, ref, mask):
+def np_to_torch(im):
+  x = im[:,:,:,None]
+  x = x.transpose(3, 2, 0, 1)/225
+  x = torch.from_numpy(x)
+  x = x.type(torch.FloatTensor)
+  x = norm(x)
+  x = x[:,0:3,:,:]
+  return x
+
+def fill_mask(opt, ref, mask, ref_dir, mask_dir):
     if opt.fill == 'mean':
         mean = []
         # We take the mean for each channel where the mask is black, that is outside the holes
         for channel in range(3):
             mean.append(ref[:,channel,:,:][mask[:,channel,:,:]==-1.].mean())
         print(mean)
+    elif opt.fill == 'NNs':
+        im = np.array(Image.open(ref_dir).convert('RGB'))
+        mask_2d =cv2.imread(mask_dir,0)
+        p_size=51
+        _,im = NNS(img,mask_2d,p_size,itr=5)
+        ref = np_to_torch(im)
+
     else:
         raise ValueError(f"Option to fill mask is unknown: {opt.fill}")
     # We now give the mean to the mask inside the holes
