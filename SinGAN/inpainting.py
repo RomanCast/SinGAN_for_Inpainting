@@ -23,7 +23,7 @@ if __name__ == '__main__':
     parser.add_argument('--ref_name', help='reference image name', required=True)
     parser.add_argument('--inpainting_start_scale', help='inpainting injection scale', type=int, required=True)
     parser.add_argument('--mode', help='task to be done', default='inpainting')
-    parser.add_argument('--fill', help='method to fill blanks in the image', default=None, choices=[None, 'mean','NNs'])
+    parser.add_argument('--fill', help='method to fill blanks in the image', default=None, choices=[None, 'mean','localMean','NNs'])
     opt = parser.parse_args()
     opt = functions.post_config(opt)
     Gs = []
