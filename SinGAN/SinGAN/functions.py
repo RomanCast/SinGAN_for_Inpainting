@@ -14,7 +14,7 @@ import os
 import random
 from sklearn.cluster import KMeans
 
-from SinGAN.patchmatch import NNS,is_hole
+from SinGAN.patchmatch import NNS,is_hole,contour_holes
 from PIL import Image
 import cv2
 
@@ -391,7 +391,9 @@ def fill_mask(opt, ref, mask, ref_dir, mask_dir):
             ref[:,channel,:,:] = ref[:,channel,:,:].where(mask[:,channel,:,:]==-1., mean[channel])
         if opt.fill == 'localMean':
             mask_2d =cv2.imread(mask_dir,0)
-            p = 51//2 #51 correspond a 1/4 de la largeur du trou
+            # if we only have one big hole, we can get the size of its bbox and define p
+            box = contour_holes(mask_2d,0)
+            p = max(box[2],box[3])//4 #1/4 de la taille du trou
             mask_new = mask_2d.copy()
             while not np.all(mask_2d == 0):
               for i in range(np.size(ref,2)):
