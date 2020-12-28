@@ -381,15 +381,35 @@ def np_to_torch(im):
   return x
 
 def fill_mask(opt, ref, mask, ref_dir, mask_dir):
-    if opt.fill == 'mean':
+    if opt.fill in ['mean','localMean']:
         mean = []
         # We take the mean for each channel where the mask is black, that is outside the holes
         for channel in range(3):
             mean.append(ref[:,channel,:,:][mask[:,channel,:,:]==-1.].mean())
-        print(mean)
         # We now give the mean to the mask inside the holes
         for channel in range(3):
             ref[:,channel,:,:] = ref[:,channel,:,:].where(mask[:,channel,:,:]==-1., mean[channel])
+        if opt.fill == 'localMean':
+            mask_2d =cv2.imread(mask_dir,0)
+            p = 51//2 #51 correspond a 1/4 de la largeur du trou
+            mask_new = mask_2d.copy()
+            while not np.all(mask_2d == 0):
+              for i in range(np.size(ref,2)):
+                  for j in range(np.size(ref,3)):
+                      if is_hole(mask_2d,i,j):
+                        i_min = max(i-p,0)
+                        i_max = min(i+p+1,np.size(ref,2)-1)
+                        j_min = max(j-p,0)
+                        j_max = min(j+p+1,np.size(ref,3)-1)
+                        for channel in range(3):
+                          l_mean = ref[:,channel,i_min:i_max,j_min:j_max][:,mask_2d[i_min:i_max,j_min:j_max]==0].mean()
+                          if l_mean.isnan():
+                            continue
+                          mask_new[i,j] = 0
+                          ref[:,channel,i,j] = l_mean
+              mask_2d = mask_new.copy()
+
+
     elif opt.fill == 'NNs':
         im = np.array(Image.open(ref_dir).convert('RGB'))
         mask_2d =cv2.imread(mask_dir,0)
