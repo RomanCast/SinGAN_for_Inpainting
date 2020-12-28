@@ -7,7 +7,7 @@ PATCHMATCH TO FILL A BIG HOLE
 
 --> we suppose that the image has one big hole
 --> we define a rectangular bounding box around the missing zone / hole
---> we use a very simple PatchMatch method (using patches of the image outside this bbox)
+--> we use a very simple PatchMatch method (looking at patches of the image outside this bbox)
 to fill in the big hole
         - the chosen patch size depends on the box size: not too big (which would mean
           iterating on a lot of pixels) and not too small (too many patchmatch iterations
@@ -57,7 +57,7 @@ def cal_distance(a, b, A_padding, B, p_size):
     dist = np.sum(np.square(np.nan_to_num(temp))) / num
     return dist
 
-def reconstruction(f, A, B, mask, mask_orig, p_size):
+def reconstruction(f, nns, A, B, mask, mask_orig, p_size):
     A_h = np.size(A, 0)
     A_w = np.size(A, 1)
     p=p_size//2
@@ -73,7 +73,11 @@ def reconstruction(f, A, B, mask, mask_orig, p_size):
             i_max = min(i+p+1,A_h-1)
             j_min = max(j-p,0)
             j_max = min(j+p+1,A_w-1)
-            temp_padding[i:i+p_size,j:j+p_size,:] = B[nn[0]-p:nn[0]+p+1,nn[1]-p:nn[1]+p+1,:]
+            if i < p or j <p or i > A_h-p-2 or j > A_w-p-2:
+              continue
+            else:
+              temp_padding[i:i+p_size,j:j+p_size,:] = nns[i-p:i+p+1,j-p:j+p+1,:]
+            # temp_padding[i:i+p_size,j:j+p_size,:] = B[nn[0]-p:nn[0]+p+1,nn[1]-p:nn[1]+p+1,:]
             mask_new[i_min:i_max,j_min:j_max] = 0
 
     for i in range(A_h):
@@ -180,7 +184,7 @@ def NNS(im, mask, p_size, itr):
     box = contour_holes(mask,p_size)
     boxx,boxy,boxw,boxh = box[0],box[1],box[2],box[3]
     mask_orig=mask.copy()
-    f, dist, img_padding = initialization(img, ref, mask,p_size)
+    f, dist, img_padding = initialization(im, ref, mask,p_size)
     for itr in range(1, itr+1):
         if itr % 2 == 0:
             for i in range(min(boxy+boxh+p_size - 1,A_h-1), max(boxy-p_size-1,0), -1):
@@ -207,7 +211,7 @@ def NNS(im, mask, p_size, itr):
         for i in range(A_h):
           for j in range(A_w):
             nns[i,j,:] = ref[f[i,j][0],f[i,j][1],:]
-        im,mask = reconstruction(f,im,ref,mask,mask_orig,p_size)
+        im,mask = reconstruction(f,nns,im,ref,mask,mask_orig,p_size)
         img_padding = np.ones([A_h+p*2, A_w+p*2, 3]) * np.nan
         img_padding[p:A_h+p, p:A_w+p, :] = im
         print('nns')
