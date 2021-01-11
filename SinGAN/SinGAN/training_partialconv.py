@@ -94,12 +94,14 @@ def train_single_scale(netD,netG,reals,masks,Gs,Zs,in_s,NoiseAmp,opt,centers=Non
     opt.receptive_field = opt.ker_size + ((opt.ker_size-1)*(opt.num_layer-1))*opt.stride
     pad_noise = int(((opt.ker_size - 1) * opt.num_layer) / 2)
     pad_image = int(((opt.ker_size - 1) * opt.num_layer) / 2)
+    pad_mask = int(((opt.ker_size - 1) * opt.num_layer) / 2)
     if opt.mode == 'animation_train':
         opt.nzx = real.shape[2]+(opt.ker_size-1)*(opt.num_layer)
         opt.nzy = real.shape[3]+(opt.ker_size-1)*(opt.num_layer)
         pad_noise = 0
     m_noise = nn.ZeroPad2d(int(pad_noise))
     m_image = nn.ZeroPad2d(int(pad_image))
+    m_mask = nn.ZeroPad2d(int(pad_mask))
 
     alpha = opt.alpha
 
@@ -180,13 +182,13 @@ def train_single_scale(netD,netG,reals,masks,Gs,Zs,in_s,NoiseAmp,opt,centers=Non
             else:
                 noise = opt.noise_amp*noise_+prev
 
-            fake,_ = netG(noise.detach(),prev,mask)
+            fake,_ = netG(noise.detach(),prev,m_mask(mask))
             output,_ = netD(fake.detach(),mask)
             errD_fake = output.mean()
             errD_fake.backward(retain_graph=True)
             D_G_z = errD_fake.item()
 
-            gradient_penalty = functions.PC_calc_gradient_penalty(netD, real, fake, mask,opt.lambda_grad, opt.device)
+            gradient_penalty = functions.PC_calc_gradient_penalty(netD, real*mask, fake*mask,mask,opt.lambda_grad, opt.device)
             gradient_penalty.backward()
 
             errD = errD_real + errD_fake + gradient_penalty
@@ -202,7 +204,7 @@ def train_single_scale(netD,netG,reals,masks,Gs,Zs,in_s,NoiseAmp,opt,centers=Non
             netG.zero_grad()
             output,_ = netD(fake,mask)
             #D_fake_map = output.detach()
-            errG = -output.sum()/n_valid
+            errG = -output.mean()
             errG.backward(retain_graph=True)
             if alpha!=0:
                 loss = nn.MSELoss(reduction='sum')
@@ -210,7 +212,7 @@ def train_single_scale(netD,netG,reals,masks,Gs,Zs,in_s,NoiseAmp,opt,centers=Non
                     z_prev = functions.quant2centers(z_prev, centers)
                     plt.imsave('%s/z_prev.png' % (opt.outf), functions.convert_image_np(z_prev), vmin=0, vmax=1)
                 Z_opt = opt.noise_amp*z_opt+z_prev
-                out,_ = netG(Z_opt.detach(),z_prev,mask)
+                out,_ = netG(Z_opt.detach(),z_prev,m_mask(mask))
                 rec_loss = alpha*loss(out*mask,real*mask)/n_valid
                 rec_loss.backward(retain_graph=True)
                 rec_loss = rec_loss.detach()
