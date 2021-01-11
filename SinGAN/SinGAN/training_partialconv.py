@@ -26,7 +26,12 @@ def train(opt,Gs,Zs,reals,masks,mask_dir,NoiseAmp):
     scale_num = 0
     real = imresize(real_,opt.scale1,opt)
     reals = functions.creat_reals_pyramid(real,reals,opt)
-    masks = create_masks_unstructured(reals,mask_dir)
+    if opt.structured:
+        # Using a bounding box to locate holes
+        masks = create_masks_structured(reals, mask_dir)
+    else:
+        # Downsampling holes
+        masks = create_masks_unstructured(mask_dir, opt)
     nfc_prev = 0
 
     while scale_num<opt.stop_scale+1:
@@ -362,9 +367,32 @@ def create_masks_structured(reals,mask_dir):
         boxw_red = min(w,int(boxw*red_w)+margin*2)
         boxh_red = min(h,int(boxh*red_h)+margin*2)
         mask = torch.zeros_like(real)
-        for i in range(h):
-            for j in range(w):
-                if in_box(boxx_red,boxy_red,boxw_red,boxh_red,i,j):
-                    mask[0,:,i,j] = torch.tensor([1,1,1])
+        mask[0,:, boxy_red:boxy_red+boxh_red, boxx_red:boxx_red+boxw_red] = torch.ones((3, boxh_red, boxw_red)).to(mask.device)
         masks.append(mask)
+    return masks
+
+
+def create_masks_unstructured(mask_dir, opt, threshold=0.01):
+    '''
+    This function downsamples a mask the same way images are downsampled, then uses a threshold to transform that to a binarized mask. Using a threshold sufficiently low ensures that we do not use any pixel from occluded regions.
+
+    inputs:
+        mask_dir: string with the location of the mask (in image format)
+        opt: arguments
+        threshold: (optional) the value defining which pixels of the mask will be kept. The lower the threshold, the more pixels are masked. Empirically, 0.01 seem to be a good threshold value.
+
+    outputs:
+        a list of binarized masks
+    '''
+    mask_orig = functions.read_image_dir(mask_dir, opt) # Reading an image that way will move it to GPU
+
+    # Downsample the mask exactly like the image
+    masks = functions.creat_reals_pyramid(mask_orig, masks, opt)
+    for mask in masks:
+        # Adapt the mask to be in the range [0, 1]
+        mask = (mask - mask.min()) / (mask.max() - mask.min())
+        # Create a new binarized mask, with 0 and 1 depending on the threshold
+        mask_bin = torch.zeros_like(mask)
+        mask_bin = mask_bin.where(mask_bin < threshold, torch.ones(1).to(mask.device))
+        masks.append(mask_bin)
     return masks
