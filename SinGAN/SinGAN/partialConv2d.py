@@ -114,40 +114,46 @@ class PartialConvBlock(nn.Module):
 
 class PCWDiscriminator(nn.Module):
     def __init__(self, opt):
-        super(WDiscriminator, self).__init__()
+        super().__init__()
         self.is_cuda = torch.cuda.is_available()
         N = int(opt.nfc)
         self.head = PartialConvBlock(opt.nc_im,N,opt.ker_size,opt.padd_size,1)
-        self.body = nn.Sequential()
+        body = []
         for i in range(opt.num_layer-2):
             N = int(opt.nfc/pow(2,(i+1)))
             block = PartialConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1)
-            self.body.add_module('block%d'%(i+1),block)
+            body.append(block)
+            # self.body.add_module('block%d'%(i+1),block)
+        self.body = nn.ModuleList(body)
         self.tail = PartialConv2d(max(N,opt.min_nfc),1,kernel_size=opt.ker_size,stride=1,padding=opt.padd_size)
 
     def forward(self,input,mask):
         x,mask_new = self.head(input,mask)
-        x,mask_new = self.body(x,mask_new)
+        for block in self.body:
+            x,mask_new = block(x,mask_new)
         x,mask_new = self.tail(x,mask_new)
         return x, mask_new
 
 
 class PCGeneratorConcatSkip2CleanAdd(nn.Module):
     def __init__(self, opt):
-        super(GeneratorConcatSkip2CleanAdd, self).__init__()
+        super().__init__()
         self.is_cuda = torch.cuda.is_available()
         N = opt.nfc
         self.head = PartialConvBlock(opt.nc_im,N,opt.ker_size,opt.padd_size,1) #GenConvTransBlock(opt.nc_z,N,opt.ker_size,opt.padd_size,opt.stride)
-        self.body = nn.Sequential()
+        body = []
         for i in range(opt.num_layer-2):
             N = int(opt.nfc/pow(2,(i+1)))
             block = PartialConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1)
-            self.body.add_module('block%d'%(i+1),block)
-        self.tail =nn.PartialConv2d(max(N,opt.min_nfc),opt.nc_im,kernel_size=opt.ker_size,stride =1,padding=opt.padd_size)
+            body.append(block)
+        self.body = nn.ModuleList(body)
+        self.tail = PartialConv2d(max(N,opt.min_nfc),opt.nc_im,kernel_size=opt.ker_size,stride =1,padding=opt.padd_size)
         self.activation = nn.Tanh()
+
     def forward(self,x,y,mask):
         x,mask_new = self.head(x,mask)
-        x,mask_new = self.body(x,mask_new)
+        for block in self.body:
+            x,mask_new = block(x,mask_new)
         x,mask_new = self.tail(x,mask_new)
         x = self.activation(x)
         ind = int((y.shape[2]-x.shape[2])/2)

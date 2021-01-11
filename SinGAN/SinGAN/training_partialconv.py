@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 from SinGAN.imresize import imresize
 
 import cv2
-from patchmatch import contour_holes,is_hole,in_box
+from SinGAN.patchmatch import contour_holes,is_hole,in_box
 
 def train(opt,Gs,Zs,reals,masks,mask_dir,NoiseAmp):
     print(f"{opt.stop_scale} scales to train")
@@ -31,7 +31,9 @@ def train(opt,Gs,Zs,reals,masks,mask_dir,NoiseAmp):
         masks = create_masks_structured(reals, mask_dir)
     else:
         # Downsampling holes
-        masks = create_masks_unstructured(mask_dir, opt)
+        masks = create_masks_unstructured(masks, mask_dir, opt)
+    for r, m in zip(reals, masks):
+        assert r.size() == m.size(), "mask size is different from image size"
     nfc_prev = 0
 
     while scale_num<opt.stop_scale+1:
@@ -82,6 +84,9 @@ def train_single_scale(netD,netG,reals,masks,Gs,Zs,in_s,NoiseAmp,opt,centers=Non
     real = reals[len(Gs)]
 
     mask = masks[len(Gs)]
+
+    assert real.size() == mask.size(), "real and mask do not have the same size"
+
     n_valid = mask.sum()
 
     opt.nzx = real.shape[2]#+(opt.ker_size-1)*(opt.num_layer)
@@ -131,7 +136,8 @@ def train_single_scale(netD,netG,reals,masks,Gs,Zs,in_s,NoiseAmp,opt,centers=Non
             # train with real
             netD.zero_grad()
 
-            output,_ = netD(real,mask).to(opt.device)
+            output,_ = netD(real,mask)
+            # output = output.to(opt.device)
             #D_real_map = output.detach()
             errD_real = -output.mean()#-a
             errD_real.backward(retain_graph=True)
@@ -332,14 +338,14 @@ def init_models(opt):
 
     #generator initialization:
     netG = PCmodels.PCGeneratorConcatSkip2CleanAdd(opt).to(opt.device)
-    netG.apply(PCmodels.weights_init)
+    # netG.apply(PCmodels.weights_init)
     if opt.netG != '':
         netG.load_state_dict(torch.load(opt.netG))
     print(netG)
 
     #discriminator initialization:
     netD = PCmodels.PCWDiscriminator(opt).to(opt.device)
-    netD.apply(PCmodels.weights_init)
+    # netD.apply(PCmodels.weights_init)
     if opt.netD != '':
         netD.load_state_dict(torch.load(opt.netD))
     print(netD)
@@ -372,9 +378,9 @@ def create_masks_structured(reals,mask_dir):
     return masks
 
 
-def create_masks_unstructured(mask_dir, opt, threshold=0.01):
+def create_masks_unstructured(masks, mask_dir, opt, threshold=0.01):
     '''
-    This function downsamples a mask the same way images are downsampled, then uses a threshold to transform that to a binarized mask. Using a threshold sufficiently low ensures that we do not use any pixel from occluded regions.
+    This function downsamples a mask the same way images are downsampled, then uses a threshold to transform that to a binarized mask. Using a threshold sufficiently low ensures that we do not use any pixel from occluded regions. This is done to the mask for training, which is the exact inverse to the mask for inpainting
 
     inputs:
         mask_dir: string with the location of the mask (in image format)
@@ -384,15 +390,19 @@ def create_masks_unstructured(mask_dir, opt, threshold=0.01):
     outputs:
         a list of binarized masks
     '''
-    mask_orig = functions.read_image_dir(mask_dir, opt) # Reading an image that way will move it to GPU
+    mask_orig_ = functions.read_image_dir(mask_dir, opt) # Reading an image that way will move it to GPU
 
     # Downsample the mask exactly like the image
+    mask_orig = imresize(mask_orig_,opt.scale1,opt)
     masks = functions.creat_reals_pyramid(mask_orig, masks, opt)
+    new_masks = []
     for mask in masks:
         # Adapt the mask to be in the range [0, 1]
         mask = (mask - mask.min()) / (mask.max() - mask.min())
         # Create a new binarized mask, with 0 and 1 depending on the threshold
-        mask_bin = torch.zeros_like(mask)
-        mask_bin = mask_bin.where(mask_bin < threshold, torch.ones(1).to(mask.device))
-        masks.append(mask_bin)
-    return masks
+        mask_bin = torch.ones_like(mask)
+        zeros = torch.tensor([0.]).to(mask_bin.device)
+        mask_bin = mask_bin.where(mask_bin < threshold, zeros)
+        new_masks.append(mask_bin)
+        del mask
+    return new_masks
