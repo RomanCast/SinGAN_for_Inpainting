@@ -129,7 +129,7 @@ class PCWDiscriminator(nn.Module):
         x,mask_new = self.head(input,mask)
         x,mask_new = self.body(x,mask_new)
         x,mask_new = self.tail(x,mask_new)
-        return x
+        return x, mask_new
 
 
 class PCGeneratorConcatSkip2CleanAdd(nn.Module):
@@ -152,4 +152,4 @@ class PCGeneratorConcatSkip2CleanAdd(nn.Module):
         x = self.activation(x)
         ind = int((y.shape[2]-x.shape[2])/2)
         y = y[:,:,ind:(y.shape[2]-ind),ind:(y.shape[3]-ind)]
-        return x+y
+        return x+y,mask_new

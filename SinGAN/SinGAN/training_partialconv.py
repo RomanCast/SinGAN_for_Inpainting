@@ -8,8 +8,6 @@ TO DO:
 
 import SinGAN.functions as functions
 import SinGAN.partialConv2d as PCmodels
-from SinGAN.loss import InpaintingLoss
-from SinGAN.partialConv2d import VGG16FeatureExtractor
 import os
 import torch.nn as nn
 import torch.optim as optim
@@ -18,13 +16,17 @@ import math
 import matplotlib.pyplot as plt
 from SinGAN.imresize import imresize
 
-def train(opt,Gs,Zs,reals,NoiseAmp):
+import cv2
+from patchmatch import contour_holes,is_hole,in_box
+
+def train(opt,Gs,Zs,reals,masks,mask_dir,NoiseAmp):
     print(f"{opt.stop_scale} scales to train")
     real_ = functions.read_image(opt)
     in_s = 0
     scale_num = 0
     real = imresize(real_,opt.scale1,opt)
     reals = functions.creat_reals_pyramid(real,reals,opt)
+    masks = create_masks_unstructured(reals,mask_dir)
     nfc_prev = 0
 
     while scale_num<opt.stop_scale+1:
@@ -47,7 +49,7 @@ def train(opt,Gs,Zs,reals,NoiseAmp):
             G_curr.load_state_dict(torch.load('%s/%d/netG.pth' % (opt.out_,scale_num-1)))
             D_curr.load_state_dict(torch.load('%s/%d/netD.pth' % (opt.out_,scale_num-1)))
 
-        z_curr,in_s,G_curr = train_single_scale(D_curr,G_curr,reals,Gs,Zs,in_s,NoiseAmp,opt)
+        z_curr,in_s,G_curr = train_single_scale(D_curr,G_curr,reals,masks,Gs,Zs,in_s,NoiseAmp,opt)
 
         G_curr = functions.reset_grads(G_curr,False)
         G_curr.eval()
@@ -70,11 +72,12 @@ def train(opt,Gs,Zs,reals,NoiseAmp):
 
 
 
-def train_single_scale(netD,netG,reals,Gs,Zs,in_s,NoiseAmp,opt,centers=None):
+def train_single_scale(netD,netG,reals,masks,Gs,Zs,in_s,NoiseAmp,opt,centers=None):
 
     real = reals[len(Gs)]
 
-    mask = create_mask(real)
+    mask = masks[len(Gs)]
+    n_valid = mask.sum()
 
     opt.nzx = real.shape[2]#+(opt.ker_size-1)*(opt.num_layer)
     opt.nzy = real.shape[3]#+(opt.ker_size-1)*(opt.num_layer)
@@ -123,7 +126,7 @@ def train_single_scale(netD,netG,reals,Gs,Zs,in_s,NoiseAmp,opt,centers=None):
             # train with real
             netD.zero_grad()
 
-            output,_ = netD(real,masxk).to(opt.device)
+            output,_ = netD(real,mask).to(opt.device)
             #D_real_map = output.detach()
             errD_real = -output.mean()#-a
             errD_real.backward(retain_graph=True)
@@ -140,8 +143,8 @@ def train_single_scale(netD,netG,reals,Gs,Zs,in_s,NoiseAmp,opt,centers=None):
                     opt.noise_amp = 1
                 elif opt.mode == 'SR_train':
                     z_prev = in_s
-                    criterion = nn.MSELoss()
-                    RMSE = torch.sqrt(criterion(real, z_prev))
+                    criterion = nn.MSELoss(reduction='sum')
+                    RMSE = torch.sqrt(criterion(real*mask, z_prev*mask)/n_valid)
                     opt.noise_amp = opt.noise_amp_init * RMSE
                     z_prev = m_image(z_prev)
                     prev = z_prev
@@ -149,8 +152,8 @@ def train_single_scale(netD,netG,reals,Gs,Zs,in_s,NoiseAmp,opt,centers=None):
                     prev = draw_concat(Gs,Zs,reals,NoiseAmp,in_s,'rand',m_noise,m_image,opt)
                     prev = m_image(prev)
                     z_prev = draw_concat(Gs,Zs,reals,NoiseAmp,in_s,'rec',m_noise,m_image,opt)
-                    criterion = nn.MSELoss()
-                    RMSE = torch.sqrt(criterion(real, z_prev))
+                    criterion = nn.MSELoss(reduction='sum')
+                    RMSE = torch.sqrt(criterion(real*mask, z_prev*mask)/n_valid)
                     opt.noise_amp = opt.noise_amp_init*RMSE
                     z_prev = m_image(z_prev)
             else:
@@ -166,13 +169,13 @@ def train_single_scale(netD,netG,reals,Gs,Zs,in_s,NoiseAmp,opt,centers=None):
             else:
                 noise = opt.noise_amp*noise_+prev
 
-            fake,mask_f = netG(noise.detach(),prev,mask)
-            output,_ = netD(fake.detach(),mask_f)
+            fake,_ = netG(noise.detach(),prev,mask)
+            output,_ = netD(fake.detach(),mask)
             errD_fake = output.mean()
             errD_fake.backward(retain_graph=True)
-            D_G_z = output.mean().item()
+            D_G_z = errD_fake.item()
 
-            gradient_penalty = functions.PC_calc_gradient_penalty(netD, real, fake, mask_f,opt.lambda_grad, opt.device)
+            gradient_penalty = functions.PC_calc_gradient_penalty(netD, real, fake, mask,opt.lambda_grad, opt.device)
             gradient_penalty.backward()
 
             errD = errD_real + errD_fake + gradient_penalty
@@ -188,16 +191,16 @@ def train_single_scale(netD,netG,reals,Gs,Zs,in_s,NoiseAmp,opt,centers=None):
             netG.zero_grad()
             output,_ = netD(fake,mask)
             #D_fake_map = output.detach()
-            errG = -output.mean()
+            errG = -output.sum()/n_valid
             errG.backward(retain_graph=True)
             if alpha!=0:
-                loss = nn.MSELoss()
+                loss = nn.MSELoss(reduction='sum')
                 if opt.mode == 'paint_train':
                     z_prev = functions.quant2centers(z_prev, centers)
                     plt.imsave('%s/z_prev.png' % (opt.outf), functions.convert_image_np(z_prev), vmin=0, vmax=1)
                 Z_opt = opt.noise_amp*z_opt+z_prev
-                out = netG(Z_opt.detach(),z_prev,mask)
-                rec_loss = alpha*loss(out,real)
+                out,_ = netG(Z_opt.detach(),z_prev,mask)
+                rec_loss = alpha*loss(out*mask,real*mask)/n_valid
                 rec_loss.backward(retain_graph=True)
                 rec_loss = rec_loss.detach()
             else:
@@ -338,6 +341,30 @@ def init_models(opt):
 
     return netD, netG
 
-def create_mask(im):
-    mask = torch.zeros_like(im)
-    #to be completed
+def create_masks_structured(reals,mask_dir):
+    '''
+    create masks in the case where we have access to the bounding box of the structured hole
+    --> mask of downsampled image = reduced bounding box
+    --> no downsampling of the mask needed
+    '''
+    mask_2d =cv2.imread(mask_dir,2)
+    boxx,boxy,boxw,boxh = contour_holes(mask_2d,0)
+    margin = 1
+    im_orig = reals[0]
+    h_orig,w_orig = np.size(im_orig,2),np.size(im_orig,3)
+    masks = []
+    for real in reals:
+        h,w = np.size(real,2),np.size(real,3)
+        red_h = h_orig/h
+        red_w = w_orig/w
+        boxx_red = max(0,int(boxx*red_w)-margin)
+        boxy_red = max(0,int(boxy*red_h)-margin)
+        boxw_red = min(w,int(boxw*red_w)+margin*2)
+        boxh_red = min(h,int(boxh*red_h)+margin*2)
+        mask = torch.zeros_like(real)
+        for i in range(h):
+            for j in range(w):
+                if in_box(boxx_red,boxy_red,boxw_red,boxh_red,i,j):
+                    mask[0,:,i,j] = torch.tensor([1,1,1])
+        masks.append(mask)
+    return masks
