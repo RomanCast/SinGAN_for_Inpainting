@@ -404,7 +404,7 @@ def create_masks_unstructured(masks, mask_dir, opt, threshold=0.01):
         # Create a new binarized mask, with 0 and 1 depending on the threshold
         mask_bin = torch.ones_like(mask)
         zeros = torch.tensor([0.]).to(mask_bin.device)
-        mask_bin = mask_bin.where(mask_bin < threshold, zeros)
+        mask_bin = mask_bin.where(mask > threshold, zeros)
         new_masks.append(mask_bin)
         del mask
     return new_masks
