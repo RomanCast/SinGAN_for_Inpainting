@@ -162,15 +162,15 @@ def train_single_scale(netD,netG,reals,masks,Gs,Zs,in_s,NoiseAmp,opt,centers=Non
                     z_prev = m_image(z_prev)
                     prev = z_prev
                 else:
-                    prev = draw_concat(Gs,Zs,reals,NoiseAmp,in_s,'rand',m_noise,m_image,opt)
+                    prev = draw_concat(Gs,Zs,reals,masks,NoiseAmp,in_s,'rand',m_noise,m_image,m_mask,opt)
                     prev = m_image(prev)
-                    z_prev = draw_concat(Gs,Zs,reals,NoiseAmp,in_s,'rec',m_noise,m_image,opt)
+                    z_prev = draw_concat(Gs,Zs,reals,masks,NoiseAmp,in_s,'rec',m_noise,m_image,m_mask,opt)
                     criterion = nn.MSELoss(reduction='sum')
                     RMSE = torch.sqrt(criterion(real*mask, z_prev*mask)/n_valid)
                     opt.noise_amp = opt.noise_amp_init*RMSE
                     z_prev = m_image(z_prev)
             else:
-                prev = draw_concat(Gs,Zs,reals,NoiseAmp,in_s,'rand',m_noise,m_image,opt)
+                prev = draw_concat(Gs,Zs,reals,masks,NoiseAmp,in_s,'rand',m_noise,m_image,m_mask,opt)
                 prev = m_image(prev)
 
             if opt.mode == 'paint_train':
@@ -232,7 +232,8 @@ def train_single_scale(netD,netG,reals,masks,Gs,Zs,in_s,NoiseAmp,opt,centers=Non
 
         if epoch % 500 == 0 or epoch == (opt.niter-1):
             plt.imsave('%s/fake_sample.png' %  (opt.outf), functions.convert_image_np(fake.detach()), vmin=0, vmax=1)
-            plt.imsave('%s/G(z_opt).png'    % (opt.outf),  functions.convert_image_np(netG(Z_opt.detach(), z_prev).detach()), vmin=0, vmax=1)
+            G_pred,_ = netG(Z_opt.detach(), z_prev,m_mask(mask))
+            plt.imsave('%s/G(z_opt).png'    % (opt.outf),  functions.convert_image_np(G_pred.detach()), vmin=0, vmax=1)
             #plt.imsave('%s/D_fake.png'   % (opt.outf), functions.convert_image_np(D_fake_map))
             #plt.imsave('%s/D_real.png'   % (opt.outf), functions.convert_image_np(D_real_map))
             #plt.imsave('%s/z_opt.png'    % (opt.outf), functions.convert_image_np(z_opt.detach()), vmin=0, vmax=1)
@@ -249,7 +250,7 @@ def train_single_scale(netD,netG,reals,masks,Gs,Zs,in_s,NoiseAmp,opt,centers=Non
     functions.save_networks(netG,netD,z_opt,opt)
     return z_opt,in_s,netG
 
-def draw_concat(Gs,Zs,reals,NoiseAmp,in_s,mode,m_noise,m_image,opt):
+def draw_concat(Gs,Zs,reals,masks,NoiseAmp,in_s,mode,m_noise,m_image,m_mask,opt):
     G_z = in_s
     if len(Gs) > 0:
         if mode == 'rand':
@@ -257,7 +258,7 @@ def draw_concat(Gs,Zs,reals,NoiseAmp,in_s,mode,m_noise,m_image,opt):
             pad_noise = int(((opt.ker_size-1)*opt.num_layer)/2)
             if opt.mode == 'animation_train':
                 pad_noise = 0
-            for G,Z_opt,real_curr,real_next,noise_amp in zip(Gs,Zs,reals,reals[1:],NoiseAmp):
+            for G,Z_opt,real_curr,real_next,mask_curr,noise_amp in zip(Gs,Zs,reals,reals[1:],masks,NoiseAmp):
                 if count == 0:
                     z = functions.generate_noise([1, Z_opt.shape[2] - 2 * pad_noise, Z_opt.shape[3] - 2 * pad_noise], device=opt.device)
                     z = z.expand(1, 3, z.shape[2], z.shape[3])
@@ -267,19 +268,17 @@ def draw_concat(Gs,Zs,reals,NoiseAmp,in_s,mode,m_noise,m_image,opt):
                 G_z = G_z[:,:,0:real_curr.shape[2],0:real_curr.shape[3]]
                 G_z = m_image(G_z)
                 z_in = noise_amp*z+G_z
-                mask = create_mask(z_in.detach())
-                G_z,_ = G(z_in.detach(),G_z,mask)
+                G_z,_ = G(z_in.detach(),G_z,m_mask(mask_curr))
                 G_z = imresize(G_z,1/opt.scale_factor,opt)
                 G_z = G_z[:,:,0:real_next.shape[2],0:real_next.shape[3]]
                 count += 1
         if mode == 'rec':
             count = 0
-            for G,Z_opt,real_curr,real_next,noise_amp in zip(Gs,Zs,reals,reals[1:],NoiseAmp):
+            for G,Z_opt,real_curr,real_next,mask_curr,noise_amp in zip(Gs,Zs,reals,reals[1:],masks,NoiseAmp):
                 G_z = G_z[:, :, 0:real_curr.shape[2], 0:real_curr.shape[3]]
                 G_z = m_image(G_z)
                 z_in = noise_amp*Z_opt+G_z
-                mask = create_mask(z_in.detach())
-                G_z,_ = G(z_in.detach(),G_z,mask)
+                G_z,_ = G(z_in.detach(),G_z,m_mask(mask_curr))
                 G_z = imresize(G_z,1/opt.scale_factor,opt)
                 G_z = G_z[:,:,0:real_next.shape[2],0:real_next.shape[3]]
                 #if count != (len(Gs)-1):
