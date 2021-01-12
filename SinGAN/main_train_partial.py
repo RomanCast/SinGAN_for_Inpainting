@@ -32,4 +32,5 @@ if __name__ == '__main__':
         real = functions.read_image(opt)
         functions.adjust_scales2image(real, opt)
         train(opt, Gs, Zs, reals, masks, mask_dir, NoiseAmp)
-        SinGAN_generate(Gs,Zs,reals,NoiseAmp,opt)
+        Gs, Zs, reals, masks, NoiseAmp = functions.load_trained_pyramid_withMasks(opt)
+        SinGAN_generate_partial(Gs,Zs,reals,masks,NoiseAmp,opt)

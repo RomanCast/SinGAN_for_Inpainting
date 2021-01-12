@@ -24,6 +24,7 @@ if __name__ == '__main__':
     parser.add_argument('--inpainting_start_scale', help='inpainting injection scale', type=int, required=True)
     parser.add_argument('--mode', help='task to be done', default='inpainting')
     parser.add_argument('--fill', help='method to fill blanks in the image', default=None, choices=[None, 'mean','localMean','NNs'])
+    parser.add_argument('--partial', action='store_true', help='use partial convolutions to avoid training on damaged image parts')
     opt = parser.parse_args()
     opt = functions.post_config(opt)
     Gs = []
@@ -70,7 +71,12 @@ if __name__ == '__main__':
             in_s = in_s[:, :, :reals[n - 1].shape[2], :reals[n - 1].shape[3]]
             in_s = imresize(in_s, 1 / opt.scale_factor, opt)
             in_s = in_s[:, :, :reals[n].shape[2], :reals[n].shape[3]]
-            out = SinGAN_generate_partial(Gs[n:], Zs[n:], reals, masks, NoiseAmp[n:], opt, in_s, n=n, num_samples=1)
-            plt.imsave('%s/start_scale=%d.png' % (dir2save, opt.inpainting_start_scale), functions.convert_image_np(out.detach()), vmin=0, vmax=1)
+            if opt.partial:
+                out = SinGAN_generate_partial(Gs[n:], Zs[n:], reals, masks, NoiseAmp[n:], opt, in_s, n=n, num_samples=1)
+                method = '_partial'
+            else:
+                out = SinGAN_generate(Gs[n:], Zs[n:], reals, NoiseAmp[n:], opt, in_s, n=n, num_samples=1)
+                method = ''
+            plt.imsave('%s/start_scale=%d%.png' % (dir2save, opt.inpainting_start_scale,method), functions.convert_image_np(out.detach()), vmin=0, vmax=1)
             out = (1-mask)*real+mask*out
-            plt.imsave('%s/start_scale=%d_masked.png' % (dir2save, opt.inpainting_start_scale), functions.convert_image_np(out.detach()), vmin=0, vmax=1)
+            plt.imsave('%s/start_scale=%d_masked%.png' % (dir2save, opt.inpainting_start_scale,method), functions.convert_image_np(out.detach()), vmin=0, vmax=1)
