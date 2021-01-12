@@ -269,6 +269,24 @@ def load_trained_pyramid(opt, mode_='train'):
     opt.mode = mode
     return Gs,Zs,reals,NoiseAmp
 
+def load_trained_pyramid_withMasks(opt, mode_='train'):
+    #dir = 'TrainedModels/%s/scale_factor=%f' % (opt.input_name[:-4], opt.scale_factor_init)
+    mode = opt.mode
+    opt.mode = 'train'
+    if (mode == 'animation_train') | (mode == 'SR_train') | (mode == 'paint_train'):
+        opt.mode = mode
+    dir = generate_dir2save(opt)
+    if(os.path.exists(dir)):
+        Gs = torch.load('%s/Gs.pth' % dir)
+        Zs = torch.load('%s/Zs.pth' % dir)
+        reals = torch.load('%s/reals.pth' % dir)
+        masks = torch.load('%s/masks.pth' % dir)
+        NoiseAmp = torch.load('%s/NoiseAmp.pth' % dir)
+    else:
+        print('no appropriate trained model is exist, please train first')
+    opt.mode = mode
+    return Gs,Zs,reals,masks,NoiseAmp
+
 def generate_in2coarsest(reals,scale_v,scale_h,opt):
     real = reals[opt.gen_start_scale]
     real_down = upsampling(real, scale_v * real.shape[2], scale_h * real.shape[3])

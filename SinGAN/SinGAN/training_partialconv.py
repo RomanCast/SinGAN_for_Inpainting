@@ -70,6 +70,7 @@ def train(opt,Gs,Zs,reals,masks,mask_dir,NoiseAmp):
         torch.save(Zs, '%s/Zs.pth' % (opt.out_))
         torch.save(Gs, '%s/Gs.pth' % (opt.out_))
         torch.save(reals, '%s/reals.pth' % (opt.out_))
+        torch.save(masks,'%s/masks.pth' % (opt.out_))
         torch.save(NoiseAmp, '%s/NoiseAmp.pth' % (opt.out_))
 
         scale_num+=1
