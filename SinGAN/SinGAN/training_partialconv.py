@@ -34,6 +34,7 @@ def train(opt,Gs,Zs,reals,masks,mask_dir,NoiseAmp):
         masks = create_masks_unstructured(masks, mask_dir, opt)
     for r, m in zip(reals, masks):
         assert r.size() == m.size(), "mask size is different from image size"
+        assert m[0,0,0,0] == 1., "First pixel of the mask should not be masked"
     nfc_prev = 0
 
     while scale_num<opt.stop_scale+1:
@@ -404,7 +405,7 @@ def create_masks_unstructured(masks, mask_dir, opt, threshold=0.01):
         # Create a new binarized mask, with 0 and 1 depending on the threshold
         mask_bin = torch.ones_like(mask)
         zeros = torch.tensor([0.]).to(mask_bin.device)
-        mask_bin = mask_bin.where(mask > threshold, zeros)
+        mask_bin = mask_bin.where(mask < threshold, zeros)
         new_masks.append(mask_bin)
         del mask
     return new_masks

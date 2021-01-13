@@ -386,7 +386,7 @@ def dilate_mask(mask,opt):
     if opt.mode == "editing":
         element = morphology.disk(radius=20)
     if opt.mode == "inpainting":
-        element = morphology.disk(radius=20)
+        element = morphology.disk(radius=7)
     mask = torch2uint8(mask)
     mask = mask[:,:,0]
     mask = morphology.binary_dilation(mask,selem=element)

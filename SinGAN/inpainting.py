@@ -77,6 +77,6 @@ if __name__ == '__main__':
             else:
                 out = SinGAN_generate(Gs[n:], Zs[n:], reals, NoiseAmp[n:], opt, in_s, n=n, num_samples=1)
                 method = ''
-            plt.imsave('%s/start_scale=%d%.png' % (dir2save, opt.inpainting_start_scale,method), functions.convert_image_np(out.detach()), vmin=0, vmax=1)
+            plt.imsave('%s/start_scale=%d%s.png' % (dir2save, opt.inpainting_start_scale,method), functions.convert_image_np(out.detach()), vmin=0, vmax=1)
             out = (1-mask)*real+mask*out
-            plt.imsave('%s/start_scale=%d_masked%.png' % (dir2save, opt.inpainting_start_scale,method), functions.convert_image_np(out.detach()), vmin=0, vmax=1)
+            plt.imsave('%s/start_scale=%d_masked%s.png' % (dir2save, opt.inpainting_start_scale,method), functions.convert_image_np(out.detach()), vmin=0, vmax=1)
