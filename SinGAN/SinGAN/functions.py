@@ -445,8 +445,8 @@ def fill_mask(opt, ref, mask, ref_dir, mask_dir):
                         j_max = min(j+p+1,np.size(ref,3)-1)
                         for channel in range(3):
                           l_mean = ref[:,channel,i_min:i_max,j_min:j_max][:,mask_2d[i_min:i_max,j_min:j_max]==0].mean()
-                          if l_mean.isnan():
-                            continue
+                          # if l_mean.isnan():
+                          #   continue
                           mask_new[i,j] = 0
                           ref[:,channel,i,j] = l_mean
               mask_2d = mask_new.copy()
