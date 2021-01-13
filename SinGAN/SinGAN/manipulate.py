@@ -153,7 +153,7 @@ def SinGAN_generate_partial(Gs,Zs,reals,masks,NoiseAmp,opt,in_s=None,scale_v=1,s
     if in_s is None:
         in_s = torch.full(reals[0].shape, 0, device=opt.device)
     images_cur = []
-    for G,Z_opt,mask,noise_amp in zip(Gs,Zs,masks,NoiseAmp):
+    for G,Z_opt,noise_amp in zip(Gs,Zs,NoiseAmp):
         pad1 = ((opt.ker_size-1)*opt.num_layer)/2
         m = nn.ZeroPad2d(int(pad1))
         nzx = (Z_opt.shape[2]-pad1*2)*scale_v

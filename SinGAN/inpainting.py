@@ -73,10 +73,12 @@ if __name__ == '__main__':
             in_s = in_s[:, :, :reals[n].shape[2], :reals[n].shape[3]]
             if opt.partial:
                 out = SinGAN_generate_partial(Gs[n:], Zs[n:], reals, masks, NoiseAmp[n:], opt, in_s, n=n, num_samples=1)
-                method = '_partial'
+                plt.imsave('%s/start_scale=%d_partial.png' % (dir2save, opt.inpainting_start_scale), functions.convert_image_np(out.detach()), vmin=0, vmax=1)
+                out = (1-mask)*real+mask*out
+                plt.imsave('%s/start_scale=%d_masked_partial.png' % (dir2save, opt.inpainting_start_scale), functions.convert_image_np(out.detach()), vmin=0, vmax=1)
+
             else:
                 out = SinGAN_generate(Gs[n:], Zs[n:], reals, NoiseAmp[n:], opt, in_s, n=n, num_samples=1)
-                method = ''
-            plt.imsave('%s/start_scale=%d%s.png' % (dir2save, opt.inpainting_start_scale,method), functions.convert_image_np(out.detach()), vmin=0, vmax=1)
-            out = (1-mask)*real+mask*out
-            plt.imsave('%s/start_scale=%d_masked%s.png' % (dir2save, opt.inpainting_start_scale,method), functions.convert_image_np(out.detach()), vmin=0, vmax=1)
+                plt.imsave('%s/start_scale=%d.png' % (dir2save, opt.inpainting_start_scale), functions.convert_image_np(out.detach()), vmin=0, vmax=1)
+                out = (1-mask)*real+mask*out
+                plt.imsave('%s/start_scale=%d_masked.png' % (dir2save, opt.inpainting_start_scale), functions.convert_image_np(out.detach()), vmin=0, vmax=1)
