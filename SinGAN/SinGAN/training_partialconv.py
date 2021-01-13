@@ -16,6 +16,7 @@ import math
 import matplotlib.pyplot as plt
 from SinGAN.imresize import imresize
 
+import numpy as np
 import cv2
 from SinGAN.patchmatch import contour_holes,is_hole,in_box
 
@@ -29,6 +30,9 @@ def train(opt,Gs,Zs,reals,masks,mask_dir,NoiseAmp):
     if opt.structured:
         # Using a bounding box to locate holes
         masks = create_masks_structured(reals, mask_dir)
+        for i in range(len(masks)):
+            plt.imsave('mask_scale{}.png'.format(i), functions.convert_image_np(masks[i].detach()), vmin=0, vmax=1)
+
     else:
         # Downsampling holes
         masks = create_masks_unstructured(masks, mask_dir, opt)
@@ -363,20 +367,21 @@ def create_masks_structured(reals,mask_dir):
     '''
     mask_2d =cv2.imread(mask_dir,2)
     boxx,boxy,boxw,boxh = contour_holes(mask_2d,0)
-    margin = 1
-    im_orig = reals[0]
+    margin = 0
+    im_orig = reals[-1]
     h_orig,w_orig = np.size(im_orig,2),np.size(im_orig,3)
     masks = []
     for real in reals:
         h,w = np.size(real,2),np.size(real,3)
-        red_h = h_orig/h
-        red_w = w_orig/w
-        boxx_red = max(0,int(boxx*red_w)-margin)
-        boxy_red = max(0,int(boxy*red_h)-margin)
+        red_h = h/h_orig
+        red_w = w/w_orig
         boxw_red = min(w,int(boxw*red_w)+margin*2)
         boxh_red = min(h,int(boxh*red_h)+margin*2)
-        mask = torch.zeros_like(real)
-        mask[0,:, boxy_red:boxy_red+boxh_red, boxx_red:boxx_red+boxw_red] = torch.ones((3, boxh_red, boxw_red)).to(mask.device)
+        boxx_red = max(0,boxx-(boxw-boxw_red)//2-margin)
+        boxy_red = max(0,boxy-(boxh-boxh_red)//2-margin)
+        mask = torch.ones_like(real)
+        box = mask[0,:, boxy_red:boxy_red+boxh_red, boxx_red:boxx_red+boxw_red].clone()
+        mask[0,:, boxy_red:boxy_red+boxh_red, boxx_red:boxx_red+boxw_red] = torch.zeros_like(box).to(mask.device)
         masks.append(mask)
     return masks
 
