@@ -24,6 +24,8 @@ if __name__ == '__main__':
     parser.add_argument('--inpainting_start_scale', help='inpainting injection scale', type=int, required=True)
     parser.add_argument('--mode', help='task to be done', default='inpainting')
     parser.add_argument('--fill', help='method to fill blanks in the image', default=None, choices=[None, 'mean','localMean','NNs'])
+    parser.add_argument('--radius', type=int, help='radius for localMeans fill method', default=4)
+    parser.add_argument('--p_size', type=int, help='patch size for NNs fill method. Must be an odd integer!', default=51)
     parser.add_argument('--partial', action='store_true', help='use partial convolutions to avoid training on damaged image parts')
     opt = parser.parse_args()
     opt = functions.post_config(opt)
@@ -43,7 +45,10 @@ if __name__ == '__main__':
             pass
         real = functions.read_image(opt)
         real = functions.adjust_scales2image(real, opt)
-        Gs, Zs, reals, masks, NoiseAmp = functions.load_trained_pyramid_withMasks(opt)
+        if opt.partial:
+            Gs, Zs, reals, masks, NoiseAmp = functions.load_trained_pyramid_withMasks(opt)
+        else:
+            Gs, Zs, reals, NoiseAmp = functions.load_trained_pyramid(opt)
         if (opt.inpainting_start_scale < 1) | (opt.inpainting_start_scale > (len(Gs)-1)):
             print("injection scale should be between 1 and %d" % (len(Gs)-1))
         else:

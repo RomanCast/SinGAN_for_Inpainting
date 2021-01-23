@@ -431,9 +431,8 @@ def fill_mask(opt, ref, mask, ref_dir, mask_dir):
             ref[:,channel,:,:] = ref[:,channel,:,:].where(mask[:,channel,:,:]==-1., mean[channel])
         if opt.fill == 'localMean':
             mask_2d =cv2.imread(mask_dir,0)
-            # if we only have one big hole, we can get the size of its bbox and define p
             box = contour_holes(mask_2d,0)
-            p = max(box[2],box[3])//4 #1/4 de la taille du trou
+            p = opt.radius
             mask_new = mask_2d.copy()
             while not np.all(mask_2d == 0):
               for i in range(np.size(ref,2)):
@@ -455,7 +454,7 @@ def fill_mask(opt, ref, mask, ref_dir, mask_dir):
     elif opt.fill == 'NNs':
         im = np.array(Image.open(ref_dir).convert('RGB'))
         mask_2d =cv2.imread(mask_dir,0)
-        p_size=51
+        p_size=opt.p_size
         _,im = NNS(im,mask_2d,p_size,itr=5)
         ref = np_to_torch(im)
 
