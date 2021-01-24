@@ -1,6 +1,6 @@
 # SinGAN for Image Inpainting
 
-This repo is implementing SinGAN for Image Inpainting. It builds mostly on the [original SinGAN repository](https://github.com/tamarott/SinGAN), implements different initialisation strategies and contains an implementation of SinGAN with Partial Convolutions, with code to downsample masks for each scale.
+This repo is implementing SinGAN for Image Inpainting. It builds mostly on the [original SinGAN repository](https://github.com/tamarott/SinGAN), implements different initialisation strategies and contains an implementation of SinGAN with Partial Convolutions, with code to downsample masks for each scale. A few changes have been made to adapt its use to the task of inpainting: new initialization methods in `functions.py`, modified model that uses partial convolutions (files containing the word `partial`).
 
 To run training on an image (make sure you have a GPU), you will first need to downgrade PyTorch:
 
